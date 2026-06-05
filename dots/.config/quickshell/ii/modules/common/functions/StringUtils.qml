@@ -295,4 +295,20 @@ Singleton {
             }
         );
     }
+
+    /**
+     * Maps a YouTube xesam:url to a fetchable cover URL, or "" if not YouTube.
+     * Fallback for players that expose no mpris:artUrl (Firefox MPRIS bridge,
+     * plasma-browser-integration on YouTube Music).
+     *   - watch URL (?v=, youtu.be/, /embed/, /shorts/) -> i.ytimg hqdefault.jpg
+     *   - playlist / channel -> public oEmbed endpoint (downloader resolves it).
+     */
+    function getYoutubeArtUrl(url) {
+        if (!url || !/(?:^|\/\/|\.)(?:youtube\.com|youtu\.be)/.test(url))
+            return "";
+        const m = url.match(/(?:[?&]v=|youtu\.be\/|\/(?:embed|shorts)\/)([A-Za-z0-9_-]{11})/);
+        if (m)
+            return `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg`;
+        return `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+    }
 }

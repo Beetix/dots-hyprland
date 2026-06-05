@@ -10,6 +10,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Mpris
 import qs.modules.common
+import qs.modules.common.functions
 
 /**
  * A service that provides easy access to the active Mpris player.
@@ -107,7 +108,11 @@ Singleton {
 		required property MprisPlayer player
 
 		function _fetchArt() {
-			const url = worker.player?.trackArtUrl;
+			let url = worker.player?.trackArtUrl;
+			// No mpris:artUrl (Firefox MPRIS bridge / plasma-browser-integration on
+			// YouTube Music): fall back to a YouTube thumbnail derived from xesam:url.
+			if (!url || url.length === 0)
+				url = StringUtils.getYoutubeArtUrl(worker.player?.metadata?.["xesam:url"] ?? "");
 			if (!url || url.length === 0) return;
 			artDownloader.trackKey = root._trackKeyOf(worker.player);
 			artDownloader.targetFile = url;
@@ -126,7 +131,17 @@ Singleton {
 					if (!isNaN(n)) artDownloader.sizeBytes = n;
 				}
 			}
-			command: ["bash", "-c", `[ -f ${artFilePath} ] || curl -4 -sSL '${targetFile}' -o '${artFilePath}'; stat -c %s '${artFilePath}' 2>/dev/null`]
+			// oEmbed URLs (YT playlists) resolve to their thumbnail first; path + url
+			// passed positionally ($1/$2) so spaces/odd chars in the URL stay literal.
+			command: ["bash", "-c", `
+				out=$1; url=$2
+				[ -f "$out" ] && { stat -c %s "$out" 2>/dev/null; exit 0; }
+				case "$url" in *"/oembed?"*)
+					url=$(curl -4 -fsSL "$url" | sed -n 's/.*"thumbnail_url":"\\([^"]*\\)".*/\\1/p') ;;
+				esac
+				[ -n "$url" ] && curl -4 -sSL "$url" -o "$out"
+				stat -c %s "$out" 2>/dev/null
+			`, "qs-coverart", artFilePath, targetFile]
 			onExited: (exitCode, exitStatus) => {
 				if (exitCode !== 0 || sizeBytes <= 0 || artFilePath.length === 0) return;
 				root.rememberBestArt(worker.player, trackKey, artFilePath, sizeBytes);
