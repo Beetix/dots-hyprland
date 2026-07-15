@@ -67,6 +67,9 @@ if [[ "$OS_GROUP_ID" == "gentoo" ]]; then
   v sudo chown -R $(whoami):$(whoami) ~/.local/
 fi
 
-v gsettings set org.gnome.desktop.interface font-name 'Google Sans Flex Medium 11 @opsz=11,wght=500'
+# Google Sans Flex is a 6-axis variable font Firefox's chrome can't render -> falls back to serif.
+# Keep the pre-update GTK font (Rubik): single-axis variable font that Firefox renders fine. The
+# Quickshell shell (Qt) still uses Google Sans Flex via illogical-impulse/config.json appearance.fonts.
+v gsettings set org.gnome.desktop.interface font-name 'Rubik 11'
 v gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
 v kwriteconfig6 --file kdeglobals --group KDE --key widgetStyle Darkly
